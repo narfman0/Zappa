@@ -33,6 +33,7 @@ except ImportError as e:  # pragma: no cover
 logging.basicConfig()
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+lambda_handler_cached = None
 
 
 class WSGIException(Exception):
@@ -61,7 +62,6 @@ class LambdaHandler(object):
     Pattern provided by @benbangert.
     """
 
-    __instance = None
     settings = None
     settings_name = None
     session = None
@@ -71,17 +71,7 @@ class LambdaHandler(object):
     wsgi_app = None
     trailing_slash = False
 
-    def __new__(cls, settings_name="zappa_settings", session=None):
-        """Singleton instance to avoid repeat setup"""
-        if LambdaHandler.__instance is None:
-            if sys.version_info[0] < 3:
-                LambdaHandler.__instance = object.__new__(cls, settings_name, session)
-            else:
-                LambdaHandler.__instance = object.__new__(cls)
-        return LambdaHandler.__instance
-
     def __init__(self, settings_name="zappa_settings", session=None):
-
         # We haven't cached our settings yet, load the settings and app.
         if not self.settings:
             # Loading settings from a python module
@@ -525,7 +515,9 @@ class LambdaHandler(object):
 
 
 def lambda_handler(event, context):  # pragma: no cover
-    return LambdaHandler.lambda_handler(event, context)
+    if lambda_handler_cached is None:
+        lambda_handler_cached = LambdaHandler.lambda_handler(event, context)
+    return lambda_handler_cached
 
 
 def keep_warm_callback(event, context):
